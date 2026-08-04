@@ -1,0 +1,429 @@
+---
+title: "Card Company Inventory (anonymised)"
+author: "O Wang Marcus Cheung"
+date: "2026-07-24"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# NOTE: If using this for personal use, please look at instances where the words "manual" or "anonymised" are present
+# "Manual" indicates instances where the program needs to be manually changed based on personal needs of different datasets
+# "Anonymised" indicates lines of code that have been changed, preventing the actual code from working to prevent personal information leaks, and is mainly applicable to the initial setwd() line and the assigning of the data from the data file. When one's own working directory and data as appropriate are used instead the code should work
+
+# Objective: With the data, determine how many cards of each item code were sold and separated by specific shop
+# Sum of the quantities of each row with the same Item Code and Shop data points
+# 2nd objective: Keep the headers Item Code, Description, Quantity, and Shop (Invoice Date to be removed)
+# 3rd objective: Output to be presented by Shop name (all same shop rows together)
+# 4th objective: Add a new column that labels the specific period of year based on Description, either Everyday (e.g. birthdays), Valentine's, Father's Day, Mother's Day, and Christmas
+# 5th objective: Output to be presented by Shop name (all same shop rows together) and time period
+# 6th objective: Add a new column indicating low selling (Quantity <= 6) and high selling (Quantity >= 30) rows
+# 7th objective: After each Shop name section, add a blank row for decorative purposes
+
+```{r}
+
+# Part 1: Setting up the data and removing irrelevant rows
+
+# Anonymised
+setwd("*YOUR WORKING DIRECTORY HERE*")
+
+# Anonymised
+# Initial excel file downloaded and saved as a CSV file
+data <- read.csv("*YOUR CSV FILE HERE*")
+
+# Searched up "number of rows in R", nrow()
+# nrow(data)
+
+# Data to start from row 7 onwards due to irrelevant overhead descriptions
+# Kept the header row just above the actual data for the next bit of code
+data <- data[6:nrow(data), ]
+
+# Searched up "how to replace csv header in r to that from a specific row"
+# https://stackoverflow.com/questions/20956119/assign-headers-based-on-existing-row-in-dataframe-in-r
+
+# Using the first row as the header (Invoice Data, Item Code, Description, Qunatity, Shop)
+# It is the new first row and not the 6th
+colnames(data) = data[1, ]
+data = data[-1, ]
+
+data
+
+```
+
+```{r}
+
+# Part 2: Sorting the data to help understand the layout of the data regarding Item Code and Shop duplicates, and filtering the data to remove rows within the data that are actually empty
+
+
+# Searched up "r how to sort by numbers in a specific column"
+# https://www.r-bloggers.com/2018/09/how-to-sort-data-in-r/#:~:text=To%20sort%20a%20vector%20in,as%20in%20the%20example%20above.
+# df[order(df$rep, -df$sales),]
+# , at the end is required to make it work (columns after "," but not sorting / ordering by column so left empty)
+# Note: `` around Item Code as this column header has a space in between
+sorted_data <- data[order(data$`Item Code`),]
+
+# Lots of empty rows in sorted_data, need to remove
+# Since counting quantity is the objective, will remove those with quantitiy less than 1
+# Searched up "how to remove rows based on specific condition in r"
+# https://www.r-bloggers.com/2024/06/remove-rows-from-dataframe-based-on-condition-in-r/#:~:text=How%20to%20remove%20rows%20in,is%20your%20go%2Dto%20tool.
+library(dplyr)
+filtered_sorted_data <- sorted_data %>% filter(Quantity >= 1)
+# Correct, checked manually
+
+filtered_sorted_data
+
+```
+
+
+```{r}
+
+# Part 3: Adding the numbers in Quantity together if they have the same Item Code and Shop data points
+
+
+# Need to change Quantity column to numeric to make the code below work
+# Searched up "how to change a column to numeric in r"
+# https://www.geeksforgeeks.org/r-language/convert-data-frame-column-to-numeric-in-r/
+filtered_sorted_data$Quantity <- as.numeric(filtered_sorted_data$Quantity)
+
+# Searched up "how to add numbers together from a certain column but from different rows if they have the same data in another column in r"
+# https://stackoverflow.com/questions/35077406/how-to-sum-values-in-a-column-associated-with-duplicates-in-another-column-in-r
+# Searched up "r group by multiple columns"
+# https://stackoverflow.com/questions/33152620/how-to-group-by-two-columns-in-r
+
+## filtered_sorted_data %>% 
+##  group_by(`Item Code`, Shop) %>% 
+##  summarise(Quantity = sum(Quantity))
+
+# Same as above in ## but kept in Description (for 2nd objective), since it does not affect the group_by() function as it is equivalent to Item Code
+filtered_sorted_data %>% 
+  group_by(`Item Code`, Description, Shop) %>% 
+  summarise(Quantity = sum(Quantity))
+
+```
+
+```{r}
+
+# Part 4: Sorting the data by shop name
+
+
+# Putting into output variable for simplicity
+output <- filtered_sorted_data %>% 
+  group_by(`Item Code`, Description, Shop) %>% 
+  summarise(Quantity = sum(Quantity))
+
+# This is the sorted output for the 3rd objective
+output[order(output$Shop),]
+
+```
+
+
+```{r}
+
+# Part 5: Adding the new column for the 4th objective
+
+
+# Putting into sorted_output variable for simplicity
+sorted_output <- output[order(output$Shop),]
+
+# Checking all the unique Description data points
+unique(sorted_output$Description)
+
+# Creating a new column based on Description, called Time_period
+sorted_output$Time_period <- sorted_output$Description
+
+sorted_output
+
+# Changing Time_period to the 5 different categories mentioned for the 4th objective
+
+# For iterating through the column below
+number_of_rows <- length(sorted_output$Time_period)
+
+# Manual
+# Replacing data points in the column with those mentioned for the 4th objective if containing certain key words
+# Note: Keywords on a case-by-case basis
+for (i in 1:number_of_rows) {
+  if (grepl("love", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("heart", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("valentine", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("date", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("wuff", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("match", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("type", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("kiss", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("rose", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("floral", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("romance", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("wife", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Valentine's"
+  }
+  else if (grepl("mom", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Mother's Day"
+  }
+  else if (grepl("mother", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Mother's Day"
+  }
+  else if (grepl("unicorn", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("cat", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("dog", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("animal", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("shark", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("bug", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("llama", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("welcome", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("home", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("koi", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("big", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("birthday", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("charcuterie", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("party", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("underwater", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("elephant", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("thank", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("wedding", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("hedgehog", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("tree", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("fairy", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("hug", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+   }
+  else if (grepl("balloon", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+   }
+  else if (grepl("boulangerie", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("dinosaur", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("jar", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("treasure", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("mailbox", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("sympathy", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("picked", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("swallow", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("beer", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("coffee", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("sandcastle", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("dachshund", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("swan", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("gnome", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("fish", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("cake", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("peacock", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("cake", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("beach", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("pickle", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("jam", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("forest", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("ocean", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("candle", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("ballet", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("celebration", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("plant", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("A407", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("orchid", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("bouquet", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("flower", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+  }
+  else if (grepl("nasturtium", sorted_output$Time_period[i], ignore.case = TRUE) == TRUE) {
+    sorted_output$Time_period[i] <- "Everyday"
+    }
+}
+
+## unique(sorted_output$Description)
+## unique(sorted_output$Time_period)
+
+sorted_output
+
+```
+
+```{r}
+
+# Part 6: Sorting based on 5th objective
+
+
+# This is the sorted output for the 5th objective
+# https://www.r-bloggers.com/2018/09/how-to-sort-data-in-r/#:~:text=To%20sort%20a%20vector%20in,as%20in%20the%20example%20above.
+# Uses the same sorting code as previously seen in Part 2, but can have multiple sort conditions
+sorted_output[order(sorted_output$Shop, sorted_output$Time_period),]
+double_sorted_output <- sorted_output[order(sorted_output$Shop, sorted_output$Time_period),]
+
+```
+
+```{r}
+
+# Part 7: 6th objective, new row indicating high selling or low selling
+
+
+# Simply creating a new column, contents to be replaced, can contain anything
+double_sorted_output$High_or_low_selling <- 0
+
+
+# number_of_rows previously created for 4th objective
+# Replacing Quantity <= 6 with "Low Selling" and Quantity >= 30 with "High Selling"
+# Note: Initially used if (double_sorted_output$High_or_low_selling[i] <= 6), but this does not work as it changes the nature of the column (numeric to character?), using $Quantity instead and this works, keeping it separate
+for (i in 1:number_of_rows) {
+  if (double_sorted_output$Quantity[i] <= 6) {
+    double_sorted_output$High_or_low_selling[i] <- "Low Selling"
+  }
+  else if (double_sorted_output$Quantity[i] >= 30) {
+    double_sorted_output$High_or_low_selling[i] <- "High Selling"
+  }
+  else if (double_sorted_output$Quantity[i] > 6 & double_sorted_output$High_or_low_selling[i] < 30) {
+    double_sorted_output$High_or_low_selling[i] <- "Moderate Selling"
+  }
+}
+
+double_sorted_output
+
+```
+
+```{r}
+
+# Part 8: 7th objective, blank row after each shop name (all rows of the same shop together, then a blank row, and then all rows of the next shop together)
+
+# Before this, double_sorted_output not considered a dataframe, required for the line below
+double_sorted_output <- as.data.frame(double_sorted_output)
+
+# Searched up "r if a dataset if sorted by a column how to add a blank row separating different data points"
+# https://stackoverflow.com/questions/70280655/add-a-blank-row-after-each-unique-value-of-a-column-in-a-dataframe-in-r
+double_sorted_output <- head(do.call(rbind, by(double_sorted_output, double_sorted_output$Shop, rbind, "")), -1)
+
+double_sorted_output
+# Note: In this output there is a extra 1st column indicating the row numbers, but this is automatically removed when exporting the data into a CSV file later
+```
+
+```{r}
+
+# Part 9: Exporting the dataframe for real-world use
+
+
+# Searched up "how to save a dataset in r as csv"
+# https://stackoverflow.com/questions/62006325/export-r-data-to-csv
+# row.names = FALSE to prevent additional numbering column which was unnecessary
+write.csv(double_sorted_output, "edited_data.csv", row.names = FALSE)
+
+```
